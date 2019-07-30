@@ -1,0 +1,17 @@
+module Markov
+( markovStep,
+markovPat
+) where
+
+import Data.List
+import Data.Maybe
+
+
+markovStep :: [[Double]] -> [Int] -> [Int]
+markovStep tp xs = (fromJust $ findIndex (r <=) $ scanl1 (+) (tp!!(head xs))) : xs
+  where r = timeToRand $ fromIntegral $ length xs
+
+
+markovPat :: Int -> Int -> [[Double]] -> Pattern Int
+markovPat n xi tp = slow (fromIntegral n) $ listToPat
+  $ reverse $ (iterate (markovStep tp) [xi]) !! (n-1)
