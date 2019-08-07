@@ -52,7 +52,7 @@ d1 $ s "supersquare*4"
 tempoFunc :: Num a => a -> a -> a -> a -> a -> a
 tempoFunc v a t0 t1 t2 = t0 + (t1*a) + (t2*v)
 
-t = fromInteger (round(tempoFunc (v3) (a3) 120 45 15))
+t = fromInteger (round(tempoFunc (v2) (a2) 120 45 15))
 
 --- implementation
 setcps (t/120/2)
@@ -70,18 +70,13 @@ loudnessFunc v a l0 l1 l2 = [l0 + (l1*a)+(l2*v)]
 
 l = listToPat ((loudnessFunc v2 a2 1 0.2 0.3) )
 
-l
-
 :t l
-
-hush
 
 d1 $ s "bd*4" # gain (l) -- same problem here??
 
-
 d1 $ s "bd*4" #gain ((loudnessFunc v2 a2 1 0.2 0.3))
 
---- pitch register ---
+--- pitch register --- combine this with the mode changes
 pitchFunc :: Float -> Float
 pitchFunc v = if (v >= 0.5) then ((2*(v-0.5)))
               else (if (v <0.5) then (2*v) else v)
@@ -95,6 +90,36 @@ pitchFunc v
 :t pitchFunc
 
 pitchFunc v1
+
+---- even newer function, using euclidean algorithm
+
+
+pick :: [a] -> IO a
+pick xs = fmap (xs !!) $ randomRIO (0, length xs - 1)
+
+
+rhythmicFunc :: (Ord a1, Ord a2, Num a1, Num a2, Num a3) => a1 -> a2 -> [[a3]]
+rhythmicFunc v a
+  | (v > 0 && a < 0 ) =  [[2,4],[2,8],[4,4],[4,8]]
+                        --   fmap (xs !!) $ randomRIO (0, length xs - 1)
+  -- | (v > 0 && a > 0 ) = [(1/4),(1/4), (1/2)] -- +ve v, +ve a
+  -- | (v < 0 && a < 0 ) = [(1/2), (1/4), (1/4)] -- -ve v, -ve a
+  -- | (v < 0 && a > 0) = [(1/4), (3/4), (3/4),(1/4)] -- -ve v, +ve a
+  -- | otherwise = error "inputs not in valid range"
+
+r = rhythmicFunc 0.44 (-0.44)
+
+r1 = pick r
+
+head (r1!!0)
+
+head (tail (r!!0))
+
+d1 $ euclid 3 8 $ s "cp"
+
+
+d1 $ struct (ascii "<[a b] [c d] [e f] [g h]>") $ sound "bd" # speed 2
+
 
 ---- rhythmic density  (new v using guards, could it be a cts function somehow??) ----
 rhythmicFunc :: (Num a1, Num a2, Ord a1, Ord a2, Fractional a3) =>
