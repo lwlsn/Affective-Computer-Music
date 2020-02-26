@@ -1,0 +1,296 @@
+---- response modelling dependencies ----
+import System.Random
+import Data.Traversable
+import Numeric
+
+g <- getStdGen
+
+---- Markov Chain dependencies ----
+import Data.List
+import Data.Maybe
+
+---- Generate random valence/arousal pairs ---
+let va = take 22 (randoms g :: [Float])
+
+--  convert to variables and scale to [-1,1]
+--  change this to a for-style loop to fill an array? how to in haskell??
+let v1 = (va!!0)*2/3-(1/3)
+    a1 = (va!!1)*2/3-(1/3)
+    v2 = (va!!2)*2/3-(1/3)
+    a2 = (va!!3)*2/3-(1/3)
+    v3 = (va!!4)*2/3-(1/3)
+    a3 = (va!!5)*2/3-(1/3)
+    v4 = (va!!6)*2/3-(1/3)
+    a4 = (va!!7)*2/3-(1/3)
+    v5 = (va!!8)*2/3-(1/3)
+    a5 = (va!!9)*2/3-(1/3)
+    v6 = (va!!10)*2/3-(1/3)
+    a6 = (va!!11)*2/3-(1/3)
+    v7 = (va!!12)*2/3-(1)
+    a7 = (va!!13)*2/3+1/3
+    v8 = (va!!14)*2/3-(1/3)
+    a8 = (va!!15)*2/3+1/3
+    v9 = (va!!16)*2/3-(1/3)
+    a9 = (va!!17)*2/3+1/3
+    v10 = (va!!18)*2/3-(1/3)
+    a10 = (va!!19)*2/3+1/3
+    v11 = (va!!20)*2/3-(1/3)
+    a11 = (va!!21)*2/3+1/3
+
+
+---
+markovStep :: [[Double]] -> [Int] -> [Int]
+markovStep tp xs = (fromJust $ findIndex (r <=) $ scanl1 (+) (tp!!(head xs))) : xs
+  where r = timeToRand $ fromIntegral $ length xs
+markovPat :: Int -> Int -> [[Double]] -> Pattern Int
+markovPat n xi tp = slow (fromIntegral n) $ listToPat
+  $ reverse $ (iterate (markovStep tp) [xi]) !! (n-1)
+
+
+--- tempo changes based on v-a from input
+tempoFunc :: Num a => a -> a -> a -> a -> a -> a
+tempoFunc v a t0 t1 t2 = t0 + (t1*a) + (t2*v)
+
+tempoFunc (1) (1) 120 45 15
+
+
+-- rhythm patterns v2
+rhythmicFuncN :: (RealFrac a, Integral b) => a -> b
+rhythmicFuncN a =  round (4*a+ 8)
+
+rhythmicFuncX :: Fractional a => a -> a -> a
+rhythmicFuncX v yIn = yIn - ((v*3/2)+5/2)
+
+-- not using this now
+-- rhythmicFuncX v yIn = round (((-yIn)/4 + 1/2)*v + ((5*yIn)/4 - 3/2))
+
+y = rhythmicFuncN a2
+x = round ( rhythmicFuncX v2 (fromInteger (y)))
+
+
+-- loudness markov patterning
+loudnessFunc :: Fractional a => a -> a -> [[a]]
+loudnessFunc v a = [[(1/2*(((a-v)/2)+1)), 1- (1/2*(((a-v)/2)+1))], [(1/2*(((a-v)/2)+1)), 1- (1/2*(((a-v)/2)+1))]]
+
+l = loudnessFunc (-0.2) (0.8)
+
+-- test
+
+d1 $ s "alcp(5,8)"
+    # gain (fmap ([1, 0]!!)
+     $ markovPat 64 0 l)
+
+v5
+a5
+
+--- implementation
+do
+  let thisVal = v5
+      thisAro = a5
+  let t = (fromInteger (round(tempoFunc (thisVal) (thisAro) 120 45 15)))
+      y = rhythmicFuncN (thisAro)
+      x = round ( rhythmicFuncX (thisVal) (fromInteger (y)))
+      l = loudnessFunc (4.0329337e-2) (-5.715236e-2)
+  putStrLn $  show (thisVal) ++ ", " ++ show (thisAro) ++ ", " ++ show t  ++ ", " ++ show (x,y) ++ ", " ++ show l
+  setcps (t/120/2)
+  d1
+    $ euclid x y
+    $ s "alcp"
+    # gain (fmap ([0.95, 0.85]!!)
+     $ markovPat 64 0 l)
+
+
+
+
+
+resetCycles
+
+
+calcLoud v = 1/3*l
+
+l = calcLoud 1
+
+
+
+
+do
+  let t = (fromInteger (round(tempoFunc (0.6) (-0.6) 120 45 15)))
+      r = rhythmicFunc (0.6) (-0.6)
+      s1 = mkStdGen 4
+      (i1, s2) = randomR (0, 10 :: Int) s1
+      i2 = mod i1 8
+  putStrLn $ show i2 ++ ", " ++ show v2 ++ ", " ++ show a2 ++ ", " ++ show t ++ ", " ++ show (r!!i2)
+  setcps (t/120/2)
+  d1
+    -- $ euclid ((r!!i2)!!0) ((r!!i2)!!1)
+    $ struct "t(5,11)"
+    $ s "alcp"
+    # gain (fmap ([0.85,0 , 0.75]!!)
+     $ markovPat 64 0 [[0.25, 0.5, 0.25], [0.3, 0.4, 0.3], [0.25, 0.75, 0.25]])
+
+
+
+
+     do
+       let t = (fromInteger (round(tempoFunc (v2) (a2) 120 45 15)))
+           r = rhythmicFunc (v2) (a2)
+           m = (modeFunc v1)
+           p = (pitchFunc v1)
+           s1 = mkStdGen 4
+           (i1, s2) = randomR (0, 10 :: Int) s1
+           i2 = mod i1 8
+       putStrLn $ show i2 ++ ", " ++ show v2 ++ ", " ++ show a2 ++ ", " ++ show t ++ ", " ++ show (r!!i2)
+       setcps (t/120/2)
+       d1
+         -- $ euclid ((r!!i2)!!0) ((r!!i2)!!1)
+        $ struct "t(5,8)"
+        $ note (scale (m) $ fmap ((map (+ (p)) [0,3,5])!!) $ markovPat 64 0 [[0.3, 0.5, 0.2], [0.3, 0, 0.7], [0.7, 0.3, 0]])
+         # s "superpiano"
+         # gain (fmap ([1,0 , 0.75]!!)
+          $ markovPat 64 0 [[0.25, 0.5, 0.25], [0.3, 0.4, 0.3], [0.25, 0.75, 0.25]])
+
+
+---- MISC STUFF NOT BEING USED ----
+
+
+
+---- loudness variation patterning ---
+
+let loudRandSeed = take 3 (randoms g :: [Float])
+
+l00 = loudRandSeed!!0
+
+l01 =  -l00
+
+loudRandSeed!!1
+
+loudRandSeed!!2
+
+
+
+---- using markov chains
+
+
+d1 $ fast 4
+$ gain (fmap ([0,1]!!) $ markovPat 64 0 [[0.5, 0.5], [0.5, 0.5]])
+# s "alcp"
+
+
+d1 $ euclid 4 9 $ s "cp"
+
+resetCycles
+
+--- trying out loudness here ---
+loudnessFunc :: Num a => a -> a -> a -> a -> a -> [a]
+loudnessFunc v a l0 l1 l2 = [l0 + (l1*a)+(l2*v)]
+
+:t l
+
+l= [1.25,1,1.5,0.75]
+
+do
+  let l = [(loudnessFunc v1 a1 1 0.1 0.4), (loudnessFunc v1 a1 1 0.1 0.4)]
+  d1 $ s "bd*4" #gain (choose (l))
+
+
+
+  loudnessFunc v a
+  | ((v > 1/3) && (a > 1/3)) = --  HV, HA
+  | (v > 1/3 && (a > (-1/3) && a < 1/3 )) =  -- HV, MA
+  | (v > 1/3 && a < (-1/3)) =  -- HV, LA
+  | ((v > (-1/3) && v < 1/3) && a > 1/3) = -- MV, HA
+  | ((v > (-1/3) && v < 1/3) && (a > (-1/3) && a < 1/3)) = -- MV, MA
+  | ((v > (-1/3) && v < 1/3) && a < (-1/3) ) = -- MV, LA
+  | (v < (-1/3) && a > 1/3) = -- LV, HA
+  | (v < (-1/3) && (a > (-1/3) && a < 1/3)) = -- LV, MA
+  | (v < (-1/3) && a < (-12)) =
+  | otherwise = error "inputs not in valid range"
+
+
+  -- loudness/syncopation v2
+  --rescale parameters in (0,1) range
+
+
+  rescale (a) = ((a+1)*0.5)
+
+  lS = (take 1 (randoms g :: [Float])!!0)
+
+  loudnessFuncRow1 a = [a, (1-(a))*lS, ((1-(a))*(1-lS))  ]
+
+  l11 a = rescale a
+  l12 = 1-(a)*lS
+
+
+  d1 $  s "alcp(5,8)"
+      # gain (fmap ([0.85,0, 0.75]!!)
+       $ markovPat 64 0 [[0.75, 0.5, 0.1], [0.3, 0.4, 0.3], [0.25, 0.75, 0.25]])
+
+
+
+  a11 = (rescale a1)
+
+  a12 = (1 - (rescale a1))*lS
+
+  a13 = ((1 - (rescale a1))*(1-lS))
+
+
+---- old rhythmic patterning ----
+--- rhythmic changes based on v-a input -- use random generated numbers in the bjorklund algorithm (somehow)
+rhythmicFunc :: (Ord a1, Ord a2, Fractional a1, Fractional a2, Num a3) => a1 -> a2 -> [[a3]]
+rhythmicFunc v a
+  | ((v > 1/3) && (a < 1/3)) =  --  HV, LA
+  | (v > 1/3 && (a > (-1/3) && a < 1/3 )) =  -- HV, MA
+  | ((v > (-1/3) && v < 1/3) && a < (-1/3) ) = -- MV, LA
+  | (v > 1/3 && a < (-1/3)) = [[3,8],[5,8],[7,16],[9,16]] -- HV, LA
+  | ((v > (-1/3) && v < 1/3) && a > 1/3) = [[3,8],[5,8],[7,16],[9,16]] -- MV, HA
+  | ((v > (-1/3) && v < 1/3) && (a > (-1/3) && a < 1/3)) = [[3,8],[5,8],[7,16],[9,16]]-- MV, MA
+  | (v < (-1/3) && a > 1/3) = [[7,11],[9,11],[7,13],[9,13]] -- LV, HA
+  | (v < (-1/3) && (a > (-1/3) && a < 1/3)) = [[3,8],[5,8],[7,16],[9,16]] -- LV, MA
+  | (v < (-1/3) && a < (-12)) = [[3,8],[5,8],[7,16],[9,16]] --LV, LA
+  | otherwise = error "inputs not in valid range"
+
+
+
+
+
+---- trying out random stuff here ----
+
+
+
+import System.Random
+
+g <- getStdGen
+
+let randomIndex = take 1 (randoms g :: [Int])
+
+(randomIndex!!0) ` mod` 5
+
+
+
+
+
+
+newRand = randomIO :: IO Int
+
+
+randomList :: Int -> [Double]
+randomList seed = randoms (mkStdGen seed) :: [Double]
+
+
+newRand
+
+a = take 1 (randomList (9))
+
+take 1 (randomList(3))
+
+round ((a!!0*10))
+
+
+import System.IO.Unsafe
+import System.Random
+
+myStdGen :: () -> StdGen
+myStdGen () = unsafePerformIO getStdGen
+
+
+import System.Random

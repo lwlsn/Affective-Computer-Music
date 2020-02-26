@@ -1,0 +1,54 @@
+---- response modelling dependencies ----
+import System.Random
+import Data.Traversable
+import Numeric
+g <- getStdGen
+
+---- Markov Chain dependencies ----
+import Data.List
+import Data.Maybe
+
+---- Generate random valence/arousal pairs ---
+let va = take 10 (randoms g :: [Float])
+
+--  convert to variables and scale to [-1,1]
+--  change this to a for-style loop to fill an array? how to in haskell??
+let v1 = (va!!0)*2-1
+    a1 = (va!!1)*2-1
+    v2 = (va!!2)*2-1
+    a2 = (va!!3)*2-1
+    v3 = (va!!4)*2-1
+    a3 = (va!!5)*2-1
+    v4 = (va!!6)*2-1
+    a4 = (va!!7)*2-1
+    v5 = (va!!8)*2-1
+    a5 = (va!!9)*2-1
+
+---- Markov Functions ----
+markovStep :: [[Double]] -> [Int] -> [Int]
+markovStep tp xs = (fromJust $ findIndex (r <=) $ scanl1 (+) (tp!!(head xs))) : xs
+  where r = timeToRand $ fromIntegral $ length xs
+markovPat :: Int -> Int -> [[Double]] -> Pattern Int
+markovPat n xi tp = slow (fromIntegral n) $ listToPat
+  $ reverse $ (iterate (markovStep tp) [xi]) !! (n-1)
+
+  -- modality changes based on v from input
+modeFunc :: (RealFrac a2, Data.String.IsString a1) => a2 -> a1
+modes = ["lydian", "ionian", "mixolydian","dorian", "aeolian","phrygian", "locrian"]
+modeFunc v =  modes!!((round ((-3*v)+3)))
+
+---- implementations
+
+
+d1 $ s "supersquare*4"
+ #note (scale (modeFunc v1) $ irand 12) --- how will irand affect this? want more of
+
+
+do
+  d1 $ fast 8
+    $ note (scale (modeFunc v2) $ fmap ([0,3,5]!!) $ markovPat 64 0 [[0.3, 0.4, 0.3], [0.3, 0, 0.7], [0.7, 0.3, 0]])
+    #gain (fmap ([0,0.75,1]!!) $ markovPat 64 0 [[0.3, 0.4, 0.3], [0.3, 0, 0.7], [0.7, 0.3, 0]])
+    # s "superpiano"
+
+
+a2

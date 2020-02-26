@@ -1,0 +1,83 @@
+---- response modelling dependencies ----
+import System.Random
+import Data.Traversable
+import Numeric
+
+g <- getStdGen
+
+---- Markov Chain dependencies ----
+
+import Data.List
+import Data.Maybe
+
+
+---- Markov Functions ----
+
+markovStep :: [[Double]] -> [Int] -> [Int]
+markovStep tp xs = (fromJust $ findIndex (r <=) $ scanl1 (+) (tp!!(head xs))) : xs
+  where r = timeToRand $ fromIntegral $ length xs
+markovPat :: Int -> Int -> [[Double]] -> Pattern Int
+markovPat n xi tp = slow (fromIntegral n) $ listToPat
+  $ reverse $ (iterate (markovStep tp) [xi]) !! (n-1)
+
+--------
+let va = take 10 (randoms g :: [Float])
+
+
+--  convert to variables and scale to [-1,1]
+-- better functional way of writing this??
+let v1 = (va!!0)*2-1
+    a1 = (va!!1)*2-1
+    v2 = (va!!2)*2-1
+    a2 = (va!!3)*2-1
+    v3 = (va!!4)*2-1
+    a3 = (va!!5)*2-1
+    v4 = (va!!6)*2-1
+    a4 = (va!!7)*2-1
+    v5 = (va!!8)*2-1
+    a5 = (va!!9)*2-1
+
+-- modality changes based on v from input
+modeFunc :: (RealFrac a2, Data.String.IsString a1) => a2 -> a1
+modes = ["lydian", "ionian", "mixolydian","dorian", "aeolian","phrygian", "locrian"]
+modeFunc v =  modes!!((round ((-3*v)+3)))
+
+--- pitch register --- combine this with the mode changes
+pitchFunc :: Float -> Float
+pitchFunc v = if (v >= 0.5) then ((2*(v-0.5)))
+              else (if (v <0.5) then (2*v) else v)
+
+pitchFunc v
+  | v >= 0.5 = (2*(v-0.5))
+  | (v < 0.5 && v >= 0) = (2*v)
+  |  (v < 0 &&  v >= (-0.5)) = v
+  | otherwise = v
+
+  d1 $ s "supersquare*4"
+   #note (scale (modeFunc v1) $ irand 12)
+
+
+-- tempofunctions
+--- tempo changes based on v-a from input
+tempoFunc :: Num a => a -> a -> a -> a -> a -> a
+tempoFunc v a t0 t1 t2 = t0 + (t1*a) + (t2*v)
+
+t = fromInteger (round(tempoFunc (v2) (a2) 120 45 15))
+
+setcps(t/120/2)
+
+
+---
+loudnessFunc :: Num a => a -> a -> a -> a -> a -> [a]
+loudnessFunc v a l0 l1 l2 = [l0 + (l1*a)+(l2*v)]
+
+:t l
+
+l= [1.25,1,1.5,0.75]
+
+do
+  let l = [(loudnessFunc v1 a1 1 0.1 0.4), (loudnessFunc v1 a1 1 0.1 0.4)]
+  d1 $ s "bd*4" #gain (choose (l))
+
+
+----
