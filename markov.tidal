@@ -1,8 +1,3 @@
-module Markov
-( markovStep,
-markovPat
-) where
-
 import Data.List
 import Data.Maybe
 
@@ -15,3 +10,16 @@ markovStep tp xs = (fromJust $ findIndex (r <=) $ scanl1 (+) (tp!!(head xs))) : 
 markovPat :: Int -> Int -> [[Double]] -> Pattern Int
 markovPat n xi tp = slow (fromIntegral n) $ listToPat
   $ reverse $ (iterate (markovStep tp) [xi]) !! (n-1)
+
+
+
+do
+  d1 $ struct "t(5,8)" $ s "cp"
+    # gain (fmap ([1,0 , 0.75]!!)
+      $ markovPat 64 0 [[0.25, 0.5, 0.25], [0.3, 0.4, 0.3], [0.25, 0.75, 0.25]])
+
+
+
+
+
+resetCycles
